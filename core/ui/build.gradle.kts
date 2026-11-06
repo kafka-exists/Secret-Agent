@@ -32,7 +32,7 @@ dependencies {
     api(libs.compose.ui.graphics)
     api(libs.compose.ui.tooling.preview)
     api(libs.compose.material3)
-    api(libs.compose.material3.window.size.class)
+    api(libs.compose.material3.windowsize)
     api(libs.compose.material.icons.extended)
     api(libs.compose.foundation)
     api(libs.compose.runtime)
