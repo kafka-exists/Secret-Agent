@@ -33,7 +33,7 @@ class Router(
     private val chainProvider: () -> List<ChatTarget>,
     private val keyResolver: (keyId: String) -> String?,
     private val onHealthChange: (Map<String, com.keyforge.chat.ai.keys.ApiKey>) -> Unit = {},
-    private val now: () -> Long = ::System.currentTimeMillis,
+    private val now: () -> Long = { System.currentTimeMillis() },
 ) {
     /** Maximum switches per single stream() call; guards against pathological loops. */
     private val maxSwitches = 8

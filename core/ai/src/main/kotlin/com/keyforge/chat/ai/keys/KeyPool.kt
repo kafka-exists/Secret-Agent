@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.update
  * again, so the circuit breaker is self-healing.
  */
 class KeyPool(
-    private val now: () -> Long = ::System.currentTimeMillis,
+    private val now: () -> Long = { System.currentTimeMillis() },
 ) {
     private val _keys = MutableStateFlow<List<ApiKey>>(emptyList())
     val keys: StateFlow<List<ApiKey>> = _keys.asStateFlow()

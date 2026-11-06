@@ -24,7 +24,7 @@ import kotlinx.serialization.json.Json
  */
 abstract class OpenAiCompatibleProvider(
     protected val client: HttpClient,
-    protected val type: ProviderType,
+    private val providerType: ProviderType,
 ) : AiProvider {
 
     abstract val baseUrl: String
@@ -32,7 +32,7 @@ abstract class OpenAiCompatibleProvider(
     /** Extra headers appended to every request (referer, app title, etc.). */
     abstract fun extraHeaders(): Map<String, String>
 
-    final override val type: ProviderType get() = type
+    final override val type: ProviderType get() = providerType
 
     override suspend fun listModels(apiKey: String): ApiResult<List<ModelInfo>> = runCatching {
         val response = client.get("$baseUrl$modelsPath") {
