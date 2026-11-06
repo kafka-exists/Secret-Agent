@@ -30,6 +30,17 @@ object Validators {
         val placeholder = PlaceholderChecker.check(file)
         if (!placeholder.ok) return placeholder
 
+        // Binary files (images, fonts, audio, video, wasm, archives) carry no
+        // parseable text, so the JSON/JS/CSS/XML parsers and the heuristic
+        // bracket/quote scan do not apply to them. A present non-empty binary
+        // file is treated as valid; ZipBuilder's round-trip check separately
+        // guards its byte-level integrity. This mirrors PlaceholderChecker,
+        // which already short-circuits the same mime prefixes.
+        if (isBinary(file.mimeType)) {
+            return if (file.content.isNotEmpty()) ValidationReport.PASS
+            else ValidationReport(false, listOf("File is empty"))
+        }
+
         val ext = file.extension.lowercase()
         return when (ext) {
             "json" -> validateJson(file, bundle)
@@ -40,6 +51,16 @@ object Validators {
             else -> validateHeuristic(file)
         }
     }
+
+    private fun isBinary(mimeType: String): Boolean =
+        // image/svg+xml is XML text, not a raster image — exclude it so it still
+        // goes through the strict XML parser.
+        (mimeType.startsWith("image/") && mimeType != "image/svg+xml") ||
+            mimeType.startsWith("font/") ||
+            mimeType.startsWith("audio/") ||
+            mimeType.startsWith("video/") ||
+            mimeType == "application/zip" ||
+            mimeType == "application/wasm"
 
     // ---- JSON / manifest ---------------------------------------------------
     fun validateJson(file: GeneratedFile, bundle: List<GeneratedFile>): ValidationReport {
