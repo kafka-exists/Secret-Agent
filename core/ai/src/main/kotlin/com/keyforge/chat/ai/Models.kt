@@ -112,7 +112,7 @@ data class ProviderRequest(
 /** Incremental events emitted while streaming a reply. */
 sealed interface StreamDelta {
     data class Text(val text: String) : StreamDelta
-    data class ToolCall(val call: ToolCall) : StreamDelta
+    data class ToolCall(val call: com.keyforge.chat.ai.ToolCall) : StreamDelta
     data class Finish(val reason: String) : StreamDelta
     /** The Router switched targets mid-stream; surface as a subtle chip. */
     data class Switch(val target: ChatTarget, val reason: String) : StreamDelta
