@@ -25,10 +25,10 @@ import org.junit.Test
  * every row of the routing table without touching the network.
  */
 class FakeProvider(
-    private val type: ProviderType,
+    private val providerType: ProviderType,
     private val scripts: ArrayDeque<Script>,
 ) : AiProvider {
-    override val type = type
+    override val type = providerType
 
     data class Script(val deltas: List<StreamDelta>, val error: Throwable? = null)
 
