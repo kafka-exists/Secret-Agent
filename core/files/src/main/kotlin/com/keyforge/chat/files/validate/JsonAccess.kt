@@ -20,7 +20,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * getString). Returns null/0/empty for missing or wrong-typed values, matching
  * org.json's opt* semantics.
  */
-internal class JsonAccess private constructor(val obj: JsonObject?) {
+internal class JsonAccess(val obj: JsonObject?) {
 
     fun has(key: String): Boolean = obj?.containsKey(key) == true
 
