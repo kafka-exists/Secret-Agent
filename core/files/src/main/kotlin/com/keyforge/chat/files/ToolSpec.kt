@@ -1,21 +1,12 @@
 package com.keyforge.chat.files
 
-import kotlinx.serialization.Serializable
+import com.keyforge.chat.ai.ToolSpec
 
 /**
- * A tool the model can call. Defined here (in core-files) because every tool
- * the app exposes is about generating or updating files — the providers just
- * shuttle the spec to the model and the calls back to the file pipeline.
+ * The concrete tools this app exposes to the model. The [ToolSpec] data shape
+ * itself lives in core-ai so providers can serialize it; here we just enumerate
+ * the actual file-generation tools.
  */
-@Serializable
-data class ToolSpec(
-    val name: String,
-    val description: String,
-    /** JSON Schema describing arguments, as a JSON string. */
-    val parametersJson: String,
-)
-
-/** The three tools exposed to the model via native function calling. */
 object FileTools {
     val createFile = ToolSpec(
         name = "create_file",

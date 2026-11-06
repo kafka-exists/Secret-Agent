@@ -6,7 +6,7 @@ import com.keyforge.chat.ai.ProviderType
 import com.keyforge.chat.ai.Role
 import com.keyforge.chat.ai.StreamDelta
 import com.keyforge.chat.ai.ToolCall
-import com.keyforge.chat.files.ToolSpec
+import com.keyforge.chat.ai.ToolSpec
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

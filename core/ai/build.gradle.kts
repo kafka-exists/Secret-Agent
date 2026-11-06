@@ -25,7 +25,6 @@ android {
 
 dependencies {
     api(project(":core:network"))
-    api(project(":core:files"))
     api(project(":core:data"))
 
     api(libs.kotlinx.serialization.json)

@@ -81,7 +81,7 @@ data class ModelInfo(
 /** What the Router asks a provider to do. */
 data class ProviderRequest(
     val messages: List<ChatMessage>,
-    val tools: List<com.keyforge.chat.files.ToolSpec> = emptyList(),
+    val tools: List<ToolSpec> = emptyList(),
     val model: String,
     val temperature: Double = 0.7,
     val maxTokens: Int? = null,
