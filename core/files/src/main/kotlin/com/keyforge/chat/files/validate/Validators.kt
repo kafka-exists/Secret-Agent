@@ -1,0 +1,209 @@
+package com.keyforge.chat.files.validate
+
+import com.keyforge.chat.files.GeneratedFile
+import org.json.JSONException
+import org.json.JSONObject
+import org.jsoup.Jsoup
+import org.mozilla.javascript.Context
+import org.mozilla.javascript.Parser
+import org.mozilla.javascript.ast.AstRoot
+import java.io.ByteArrayInputStream
+import javax.xml.parsers.SAXParserFactory
+
+/**
+ * On-device validators (section 5.4-C). Each returns a [ValidationReport] with
+ * either a clean pass or a specific, actionable error list the self-repair loop
+ * can hand back to the model.
+ */
+data class ValidationReport(
+    val ok: Boolean,
+    val errors: List<String> = emptyList(),
+) {
+    companion object {
+        val PASS = ValidationReport(true)
+        fun fail(vararg errors: String) = ValidationReport(false, errors.toList())
+    }
+}
+
+object Validators {
+
+    /** Dispatch on extension. Unknown types get the heuristic check. */
+    fun validate(file: GeneratedFile, bundle: List<GeneratedFile> = listOf(file)): ValidationReport {
+        val placeholder = PlaceholderChecker.check(file)
+        if (!placeholder.ok) return placeholder
+
+        val ext = file.extension.lowercase()
+        return when (ext) {
+            "json" -> validateJson(file, bundle)
+            "html", "htm" -> validateHtml(file, bundle)
+            "js", "mjs" -> validateJs(file)
+            "css" -> validateCss(file)
+            "xml", "svg" -> validateXml(file)
+            else -> validateHeuristic(file)
+        }
+    }
+
+    // ---- JSON / manifest ---------------------------------------------------
+    fun validateJson(file: GeneratedFile, bundle: List<GeneratedFile>): ValidationReport {
+        val text = String(file.content, Charsets.UTF_8)
+        val parsed = try {
+            JSONObject(text)
+        } catch (e: JSONException) {
+            return ValidationReport(false, listOf("Invalid JSON: ${e.message}"))
+        }
+        // Chrome/Edge/Firefox extension manifest checks.
+        if (file.name == "manifest.json" || (parsed.has("manifest_version") && parsed.has("name"))) {
+            return validateExtensionManifest(parsed, bundle)
+        }
+        return ValidationReport.PASS
+    }
+
+    private fun validateExtensionManifest(m: JSONObject, bundle: List<GeneratedFile>): ValidationReport {
+        val errors = mutableListOf<String>()
+        val mv = m.optInt("manifest_version", 0)
+        if (mv !in listOf(2, 3)) errors.add("manifest_version must be 2 or 3 (got $mv)")
+        if (m.optString("name").isBlank()) errors.add("name is required")
+        if (m.optString("version").isBlank()) errors.add("version is required")
+        // Permissions must be a list of strings.
+        m.optJSONArray("permissions")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val p = arr.opt(i)
+                if (p !is String) errors.add("permissions[$i] must be a string")
+            }
+        }
+        val paths = mutableListOf<String>()
+        m.optJSONObject("icons")?.let { icons ->
+            icons.keys().forEach { size -> paths.add(icons.getString(size)) }
+        }
+        m.optJSONObject("action")?.optString("default_popup")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optJSONObject("browser_action")?.optString("default_popup")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optString("background")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optJSONObject("background")?.optString("service_worker")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optJSONObject("background")?.optString("scripts")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optJSONObject("options_ui")?.optString("page")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optJSONArray("content_scripts")?.let { arr ->
+            for (i in 0 until arr.length()) {
+                val cs = arr.optJSONObject(i) ?: continue
+                cs.optJSONArray("js")?.let { jsArr ->
+                    for (j in 0 until jsArr.length()) paths.add(jsArr.getString(j))
+                }
+                cs.optJSONArray("css")?.let { cssArr ->
+                    for (j in 0 until cssArr.length()) paths.add(cssArr.getString(j))
+                }
+            }
+        }
+        val bundlePaths = bundle.map { it.path }.toSet()
+        for (p in paths) {
+            if (p !in bundlePaths) errors.add("Manifest references '$p' but it is not in the bundle")
+        }
+        return if (errors.isEmpty()) ValidationReport.PASS else ValidationReport(false, errors)
+    }
+
+    // ---- HTML --------------------------------------------------------------
+    fun validateHtml(file: GeneratedFile, bundle: List<GeneratedFile>): ValidationReport {
+        val text = String(file.content, Charsets.UTF_8)
+        val doc = try {
+            Jsoup.parse(text)
+        } catch (e: Exception) {
+            return ValidationReport(false, listOf("HTML parse failed: ${e.message}"))
+        }
+        val errors = mutableListOf<String>()
+        val bundlePaths = bundle.map { it.path }.toSet()
+        for (el in doc.select("[href], [src]")) {
+            val ref = el.attr("href").ifBlank { el.attr("src") }
+            if (ref.isBlank() || ref.startsWith("http") || ref.startsWith("//") || ref.startsWith("data:")) continue
+            if (ref !in bundlePaths) errors.add("HTML references '$ref' which is not in the bundle")
+        }
+        return if (errors.isEmpty()) ValidationReport.PASS else ValidationReport(false, errors)
+    }
+
+    // ---- JavaScript (Rhino AST parse) -------------------------------------
+    fun validateJs(file: GeneratedFile): ValidationReport {
+        val text = String(file.content, Charsets.UTF_8)
+        return try {
+            val ctx = Context.enter()
+            try {
+                ctx.languageVersion = Context.VERSION_ES6
+                ctx.optimizationLevel = -1
+                val env = org.mozilla.javascript.CompilerEnvirons()
+                val parser = Parser(env)
+                val ast: AstRoot = parser.parse(text, file.name, 1)
+                if (ast == null) ValidationReport.fail("JS parse returned null")
+                else ValidationReport.PASS
+            } finally {
+                Context.exit()
+            }
+        } catch (e: Exception) {
+            ValidationReport(false, listOf("JS syntax error: ${e.message}"))
+        }
+    }
+
+    // ---- CSS (brace balance + basic parse) --------------------------------
+    fun validateCss(file: GeneratedFile): ValidationReport {
+        val text = String(file.content, Charsets.UTF_8)
+        val open = text.count { it == '{' }
+        val close = text.count { it == '}' }
+        return if (open == close) ValidationReport.PASS
+        else ValidationReport(false, listOf("Unbalanced braces in CSS: $open '{' vs $close '}'"))
+    }
+
+    // ---- XML / SVG (strict SAX parse) -------------------------------------
+    fun validateXml(file: GeneratedFile): ValidationReport {
+        return try {
+            val factory = SAXParserFactory.newInstance().apply { isNamespaceAware = true }
+            val parser = factory.newSAXParser()
+            parser.parse(ByteArrayInputStream(file.content), org.xml.sax.helpers.DefaultHandler())
+            ValidationReport.PASS
+        } catch (e: Exception) {
+            ValidationReport(false, listOf("XML parse error: ${e.message}"))
+        }
+    }
+
+    // ---- Heuristic for .py, .kt, .java, others ----------------------------
+    fun validateHeuristic(file: GeneratedFile): ValidationReport {
+        val text = String(file.content, Charsets.UTF_8)
+        val errors = mutableListOf<String>()
+        if (text.isEmpty()) errors.add("File is empty")
+        // Bracket balance across (), [], {}.
+        val bal = IntArray(3)
+        for (c in text) when (c) {
+            '(' -> bal[0]++; ')' -> bal[0]--
+            '[' -> bal[1]++; ']' -> bal[1]--
+            '{' -> bal[2]++; '}' -> bal[2]--
+        }
+        if (bal.any { it != 0 }) errors.add("Unbalanced brackets: ()=${bal[0]} []=${bal[1]} {}=${bal[2]}")
+        // Unterminated string literal (a single " with no match on its line).
+        for ((idx, line) in text.lines().withIndex()) {
+            val quotes = line.count { it == '"' } - line.count { it == '\\' && false }
+            if (quotes % 2 != 0 && !line.trim().startsWith("//")) {
+                // Could be a legit multi-line; only flag if it's the last line.
+                if (idx == text.lines().lastIndex) errors.add("Possibly unterminated string at line ${idx + 1}")
+            }
+        }
+        return if (errors.isEmpty()) ValidationReport.PASS else ValidationReport(false, errors)
+    }
+}
+
+/** Fails on leftover placeholder markers (section 5.4-C "All"). */
+object PlaceholderChecker {
+    private val MARKERS = listOf(
+        Regex("(?i)\\bTODO\\b"),
+        Regex("(?i)lorem ipsum"),
+        Regex("(?i)your_api_key_here"),
+        Regex("(?i)your code here"),
+        Regex("(?i)replace me"),
+        Regex("\\.\\.\\.{3,}"),     // "..." used as a stub
+        Regex("(?i)placeholder"),
+    )
+
+    fun check(file: GeneratedFile): ValidationReport {
+        // Binary files don't get placeholder-checked as text.
+        if (file.mimeType.startsWith("image/") || file.mimeType.startsWith("font/")) {
+            return ValidationReport.PASS
+        }
+        val text = String(file.content, Charsets.UTF_8)
+        val hits = MARKERS.mapNotNull { pat -> pat.find(text)?.value }
+        return if (hits.isEmpty()) ValidationReport.PASS
+        else ValidationReport(false, hits.map { "Contains placeholder marker: $it" })
+    }
+}

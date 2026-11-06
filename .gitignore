@@ -1,2 +1,36 @@
 skills/
 node_modules/
+
+# Built artifacts
+/build
+/app/build
+/*/build
+/**/build
+
+# Gradle
+.gradle/
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.iws
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Native
+.cxx/
+.externalNativeBuild/
+
+# Signing (never commit secrets)
+*.keystore
+*.jks
+keystore.properties
+release/
+
+# Built binaries (CI produces these as artifacts)
+*.apk
+*.aab

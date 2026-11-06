@@ -1,0 +1,13 @@
+<resources>
+    <!-- Splash + base theme. The SplashScreen API handles the launch flash;
+         postSplashScreenTheme hands off to MaterialTheme in Compose. -->
+    <style name="Theme.KeyForge" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+
+    <style name="Theme.KeyForge.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_icon</item>
+        <item name="postSplashScreenTheme">@style/Theme.KeyForge</item>
+    </style>
+</resources>

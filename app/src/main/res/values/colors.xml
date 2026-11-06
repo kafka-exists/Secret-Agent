@@ -1,0 +1,4 @@
+<resources>
+    <!-- Matches MdBackground from the Compose theme so the splash doesn't flash white. -->
+    <color name="splash_background">#FFF5FBF9</color>
+</resources>

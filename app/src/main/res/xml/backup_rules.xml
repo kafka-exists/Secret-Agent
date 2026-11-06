@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keys are excluded from backup so they never leave the device. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="keyforge_settings.preferences_pb" />
+    <exclude domain="database" path="keyforge.db" />
+</full-backup-content>
