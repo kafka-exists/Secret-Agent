@@ -9,6 +9,7 @@ import com.keyforge.chat.ai.RoutingPreset
 import com.keyforge.chat.ai.StreamDelta
 import com.keyforge.chat.ai.keys.KeyPool
 import com.keyforge.chat.ai.keys.toDomain
+import com.keyforge.chat.ai.keys.toEntity
 import com.keyforge.chat.ai.router.Router
 import com.keyforge.chat.data.repo.ApiKeyRepository
 import com.keyforge.chat.data.repo.ChatRepository

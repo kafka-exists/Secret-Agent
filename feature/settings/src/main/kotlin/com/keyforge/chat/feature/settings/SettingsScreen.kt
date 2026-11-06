@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.keyforge.chat.ai.RoutingPreset
 import com.keyforge.chat.ui.theme.spacing
 
 @OptIn(ExperimentalMaterial3Api::class)

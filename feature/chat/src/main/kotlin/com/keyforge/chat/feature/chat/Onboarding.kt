@@ -1,5 +1,6 @@
 package com.keyforge.chat.feature.chat
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -132,6 +133,3 @@ private fun OnboardingPageContent(page: OnboardingPage) {
 }
 
 private data class OnboardingPage(val icon: ImageVector, val title: String, val body: String)
-
-private fun Modifier.background(color: androidx.compose.ui.graphics.Color, shape: androidx.compose.ui.graphics.Shape) =
-    this.then(androidx.compose.foundation.background(color, shape))

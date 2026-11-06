@@ -32,6 +32,7 @@ import com.keyforge.chat.ui.components.EmptyState
 import com.keyforge.chat.ui.components.ErrorState
 import com.keyforge.chat.ui.theme.spacing
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     modifier: Modifier = Modifier,
