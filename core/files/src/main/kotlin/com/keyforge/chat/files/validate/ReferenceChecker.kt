@@ -36,8 +36,9 @@ object ReferenceChecker {
                 "html", "htm" -> {
                     val doc = runCatching { Jsoup.parse(String(file.content, Charsets.UTF_8)) }.getOrNull()
                     doc?.select("[href], [src]")?.forEach { el ->
-                        val ref = el.attr("href").ifBlank { el.attr("src") }
-                        if (ref.isNotBlank() && !ref.startsWith("http") && !ref.startsWith("//") && !ref.startsWith("data:")) {
+                        val raw = el.attr("href").ifBlank { el.attr("src") }
+                        if (raw.isNotBlank() && !raw.startsWith("http") && !raw.startsWith("//") && !raw.startsWith("data:")) {
+                            val ref = resolveRelative(file.path, raw)
                             edges.add(Edge(file.path, ref, "html-asset"))
                             referenced.add(ref)
                         }

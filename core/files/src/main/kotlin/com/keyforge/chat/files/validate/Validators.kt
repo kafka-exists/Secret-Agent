@@ -104,11 +104,18 @@ object Validators {
         val errors = mutableListOf<String>()
         val bundlePaths = bundle.map { it.path }.toSet()
         for (el in doc.select("[href], [src]")) {
-            val ref = el.attr("href").ifBlank { el.attr("src") }
-            if (ref.isBlank() || ref.startsWith("http") || ref.startsWith("//") || ref.startsWith("data:")) continue
+            val raw = el.attr("href").ifBlank { el.attr("src") }
+            if (raw.isBlank() || raw.startsWith("http") || raw.startsWith("//") || raw.startsWith("data:")) continue
+            val ref = resolveRelative(file.path, raw)
             if (ref !in bundlePaths) errors.add("HTML references '$ref' which is not in the bundle")
         }
         return if (errors.isEmpty()) ValidationReport.PASS else ValidationReport(false, errors)
+    }
+
+    private fun resolveRelative(fromPath: String, ref: String): String {
+        if (ref.startsWith("/")) return ref.removePrefix("/")
+        val dir = fromPath.substringBeforeLast('/', "")
+        return if (dir.isEmpty()) ref else "$dir/$ref"
     }
 
     // ---- JavaScript (Rhino AST parse) -------------------------------------
