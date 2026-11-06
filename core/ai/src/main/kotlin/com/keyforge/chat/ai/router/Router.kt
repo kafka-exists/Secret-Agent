@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.onEach
  *  - Truncated: continue-from-partial on next target, stitch.
  *  - Unknown: surface as StreamDelta.Error and stop.
  */
-class Router(
+open class Router(
     private val providers: Map<ProviderType, AiProvider>,
     private val keyPool: KeyPool,
     private val chainProvider: () -> List<ChatTarget>,

@@ -1,6 +1,7 @@
 package com.keyforge.chat.files
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import com.keyforge.chat.files.validate.ReferenceChecker
 import com.keyforge.chat.files.validate.Validators
 import com.keyforge.chat.files.zip.ZipBuilder
@@ -69,7 +70,7 @@ class ChromeExtensionPipelineTest {
         val bundle = bundle()
         for (f in bundle) {
             val report = Validators.validate(f, bundle)
-            assertThat("$f failed: ${report.errors}").that(report.ok).isTrue()
+            assertWithMessage("$f failed: ${report.errors}").that(report.ok).isTrue()
         }
     }
 
