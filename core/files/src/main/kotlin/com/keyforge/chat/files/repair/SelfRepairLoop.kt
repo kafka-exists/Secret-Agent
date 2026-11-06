@@ -54,7 +54,7 @@ class SelfRepairLoop(
             val refReport = ReferenceChecker.check(current)
             if (!refReport.ok) {
                 failures.add(
-                    current.firstOrNull { it.name == "manifest.json" } ?: current.first()
+                    (current.firstOrNull { it.name == "manifest.json" } ?: current.first())
                         to refReport.missing.map { "Missing referenced file: $it" },
                 )
             }

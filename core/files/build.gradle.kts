@@ -22,6 +22,7 @@ android {
 }
 
 dependencies {
+    api(project(":core:ai"))
     api(libs.jsoup)
     api(libs.rhino)
     api(libs.kotlinx.serialization.json)
