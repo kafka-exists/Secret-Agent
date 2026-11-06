@@ -103,8 +103,11 @@ fun CodeBlock(
 }
 
 private fun highlight(code: String): AnnotatedString = buildAnnotatedString {
+    // Match comments, strings (single/double/triple-quoted), numbers, and a broad
+    // set of language keywords. Built as an escaped string rather than a raw
+    // string so the embedded triple-quote sequence stays unambiguous.
     val tokenPattern = Regex(
-        """(?s)(//.*?$|/\*.*?\*/|#.*?$)|("""""""[^"\n]*"""")|('(?:\\.|[^'\\])*')|(\b\d+(?:\.\d+)?\b)|(\b(?:fun|val|var|class|object|interface|return|if|else|for|while|import|package|public|private|internal|const|override|suspend|companion|when|in|is|as|null|true|false|fun|def|print|len|range|self|import|from|export|const|let|var|function|return|if|else|for|while|new|class|extends|import|export|default|async|await|try|catch|throw)\b)""",
+        "(?s)(//.*?\$|/\\*.*?\\*/|#.*?\$)|(\"\"\"[^\"]*\"\"\")|('(?:\\\\.|[^'\\\\])*')|(\\b\\d+(?:\\.\\d+)?\\b)|(\\b(?:fun|val|var|class|object|interface|return|if|else|for|while|import|package|public|private|internal|const|override|suspend|companion|when|in|is|as|null|true|false|def|print|len|range|self|from|export|let|function|new|extends|default|async|await|try|catch|throw)\\b)",
         setOf(RegexOption.MULTILINE),
     )
     var last = 0

@@ -1,8 +1,8 @@
 package com.keyforge.chat.ui.theme
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.runtime.StaticCompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
@@ -44,5 +44,5 @@ val androidx.compose.material3.MaterialTheme.spacing: Spacing
 @Composable
 internal fun ProvideSpacing(spacing: Spacing, content: @Composable () -> Unit) {
     val current = remember(spacing) { spacing }
-    StaticCompositionLocalProvider(LocalSpacing provides current, content = content)
+    CompositionLocalProvider(LocalSpacing provides current, content = content)
 }
