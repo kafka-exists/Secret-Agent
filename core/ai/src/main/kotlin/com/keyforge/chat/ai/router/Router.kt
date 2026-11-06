@@ -119,20 +119,24 @@ class Router(
             }
 
             // Normal finish. If truncated (length), continue on the next target and stitch.
-            if (finishReason == "length" || finishReason == "max_tokens") {
-                if (queue.isNotEmpty()) {
-                    current = current.continuedFrom(partial.toString())
-                    emit(StreamDelta.Switch(target, "Output truncated, continuing"))
-                    attempts++
-                    continue
-                }
-                emit(StreamDelta.Finish(finishReason!!))
+            if ((finishReason == "length" || finishReason == "max_tokens") && queue.isNotEmpty()) {
+                current = current.continuedFrom(partial.toString())
+                emit(StreamDelta.Switch(target, "Output truncated, continuing"))
+                attempts++
+                continue
             }
+            // Emit the terminal Finish for any non-continuing completion (normal
+            // stop, or truncation with no remaining target).
+            emit(StreamDelta.Finish(finishReason ?: "stop"))
             onHealthChange(keyPool.snapshot().associateBy { it.id })
             return@flow
         }
 
+        // Loop exited without a successful finish: either we ran out of targets
+        // or hit the switch cap. Surface a terminal Error so callers can react.
         if (attempts >= maxSwitches) {
+            emit(StreamDelta.Error("Exhausted all failover targets (switch cap)"))
+        } else {
             emit(StreamDelta.Error("Exhausted all failover targets"))
         }
     }.onEach {

@@ -122,6 +122,7 @@ class RouterTest {
             val switch = awaitItem()
             assertThat(switch).isInstanceOf(StreamDelta.Switch::class.java)
             assertThat(awaitItem()).isEqualTo(StreamDelta.Text("ok"))
+            assertThat(awaitItem()).isEqualTo(StreamDelta.Finish("stop"))
             awaitComplete()
         }
     }
@@ -141,6 +142,7 @@ class RouterTest {
             val switch = awaitItem()
             assertThat(switch).isInstanceOf(StreamDelta.Switch::class.java)
             assertThat(awaitItem()).isEqualTo(StreamDelta.Text("recovered"))
+            assertThat(awaitItem()).isEqualTo(StreamDelta.Finish("stop"))
             awaitComplete()
         }
     }
@@ -160,6 +162,7 @@ class RouterTest {
             val switch = awaitItem()
             assertThat(switch).isInstanceOf(StreamDelta.Switch::class.java)
             assertThat(awaitItem()).isEqualTo(StreamDelta.Text(" complete"))
+            assertThat(awaitItem()).isEqualTo(StreamDelta.Finish("stop"))
             awaitComplete()
         }
     }
@@ -181,6 +184,7 @@ class RouterTest {
             val switch = awaitItem()
             assertThat(switch).isInstanceOf(StreamDelta.Switch::class.java)
             assertThat(awaitItem()).isEqualTo(StreamDelta.Text("ok"))
+            assertThat(awaitItem()).isEqualTo(StreamDelta.Finish("stop"))
             awaitComplete()
         }
     }
