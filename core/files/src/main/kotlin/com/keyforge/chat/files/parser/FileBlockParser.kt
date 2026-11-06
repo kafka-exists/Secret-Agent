@@ -1,8 +1,8 @@
 package com.keyforge.chat.files.parser
 
-import android.util.Base64
 import com.keyforge.chat.files.GeneratedFile
 import com.keyforge.chat.files.GeneratedZip
+import java.util.Base64 as JvmBase64
 
 /**
  * Streaming-tolerant parser for the `<<<FILE>>>` / `<<<ZIP>>>` fallback protocol
@@ -100,6 +100,21 @@ class FileBlockParser {
                 }
             }
             State.IN_FILE, State.IN_ZIP_FILE -> {
+                // Between two files inside a zip (currentPath == null), the next
+                // <<<FILE ...>>> header opens the next nested file.
+                if (currentPath == null && state == State.IN_ZIP_FILE) {
+                    val fileStart = text.indexOf("<<<FILE ")
+                    if (fileStart >= 0) {
+                        val headerEnd = text.indexOf(">>>", fileStart)
+                        if (headerEnd < 0) return false
+                        val header = text.substring(fileStart, headerEnd)
+                        currentPath = extractAttr(header, "path")
+                        currentEncoding = extractAttr(header, "encoding") ?: "utf8"
+                        buffer.setLength(0)
+                        buffer.append(text.substring(headerEnd + 3))
+                        return true
+                    }
+                }
                 val endIdx = text.indexOf("<<<END_FILE>>>")
                 val zipEndIdx = if (state == State.IN_ZIP_FILE) text.indexOf("<<<END_ZIP>>>") else -1
                 if (endIdx >= 0 && (zipEndIdx < 0 || endIdx < zipEndIdx)) {
@@ -148,16 +163,21 @@ class FileBlockParser {
     }
 
     private fun decode(content: String, encoding: String): ByteArray = when (encoding) {
-        "base64" -> runCatching { Base64.decode(content, Base64.DEFAULT) }.getOrElse { content.toByteArray(Charsets.UTF_8) }
+        "base64" -> runCatching { JvmBase64.getDecoder().decode(content) }.getOrElse { content.toByteArray(Charsets.UTF_8) }
         else -> content.toByteArray(Charsets.UTF_8)
     }
 
     private fun String.trimFences(): String {
-        var s = this
+        var s = this.trim()
         // Strip a single leading ```lang fence + trailing ``` if present.
         if (s.startsWith("```")) {
             val firstLineEnd = s.indexOf('\n')
-            if (firstLineEnd > 0) s = s.substring(firstLineEnd + 1)
+            if (firstLineEnd > 0) {
+                // ```lang\n... -> drop the fence line; bare ``` with no newline -> drop just the fence.
+                s = s.substring(firstLineEnd + 1)
+            } else {
+                s = s.removePrefix("```")
+            }
         }
         val trailingFence = s.lastIndexOf("```")
         if (trailingFence >= 0 && s.substring(trailingFence).trim() == "```") {
