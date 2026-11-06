@@ -1,8 +1,6 @@
 package com.keyforge.chat.files.validate
 
 import com.keyforge.chat.files.GeneratedFile
-import org.json.JSONException
-import org.json.JSONObject
 import org.jsoup.Jsoup
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Parser
@@ -47,18 +45,20 @@ object Validators {
     fun validateJson(file: GeneratedFile, bundle: List<GeneratedFile>): ValidationReport {
         val text = String(file.content, Charsets.UTF_8)
         val parsed = try {
-            JSONObject(text)
-        } catch (e: JSONException) {
+            JsonAccess.parse(text)
+        } catch (e: JsonParseException) {
             return ValidationReport(false, listOf("Invalid JSON: ${e.message}"))
         }
-        // Chrome/Edge/Firefox extension manifest checks.
-        if (file.name == "manifest.json" || (parsed.has("manifest_version") && parsed.has("name"))) {
+        // Run extension-manifest checks only when the file actually declares a
+        // manifest_version — a file merely named manifest.json but carrying
+        // plain data is treated as ordinary JSON.
+        if (parsed.has("manifest_version")) {
             return validateExtensionManifest(parsed, bundle)
         }
         return ValidationReport.PASS
     }
 
-    private fun validateExtensionManifest(m: JSONObject, bundle: List<GeneratedFile>): ValidationReport {
+    private fun validateExtensionManifest(m: JsonAccess, bundle: List<GeneratedFile>): ValidationReport {
         val errors = mutableListOf<String>()
         val mv = m.optInt("manifest_version", 0)
         if (mv !in listOf(2, 3)) errors.add("manifest_version must be 2 or 3 (got $mv)")
@@ -66,30 +66,24 @@ object Validators {
         if (m.optString("version").isBlank()) errors.add("version is required")
         // Permissions must be a list of strings.
         m.optJSONArray("permissions")?.let { arr ->
-            for (i in 0 until arr.length()) {
-                val p = arr.opt(i)
-                if (p !is String) errors.add("permissions[$i] must be a string")
+            arr.forEachIndexed { i, el ->
+                if (el !is kotlinx.serialization.json.JsonPrimitive) errors.add("permissions[$i] must be a string")
             }
         }
         val paths = mutableListOf<String>()
-        m.optJSONObject("icons")?.let { icons ->
-            icons.keys().forEach { size -> paths.add(icons.getString(size)) }
-        }
-        m.optJSONObject("action")?.optString("default_popup")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
-        m.optJSONObject("browser_action")?.optString("default_popup")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
-        m.optString("background")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
-        m.optJSONObject("background")?.optString("service_worker")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
-        m.optJSONObject("background")?.optString("scripts")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
-        m.optJSONObject("options_ui")?.optString("page")?.takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        val icons = m.optJSONObject("icons")
+        if (icons.keys().isNotEmpty()) icons.keys().forEach { size -> paths.add(icons.getString(size)) }
+        m.optJSONObject("action").optString("default_popup").takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optJSONObject("browser_action").optString("default_popup").takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optString("background").takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optJSONObject("background").optString("service_worker").takeIf { it.isNotBlank() }?.let { paths.add(it) }
+        m.optJSONObject("background").optJSONArray("scripts")?.strings()?.forEach { paths.add(it) }
+        m.optJSONObject("options_ui").optString("page").takeIf { it.isNotBlank() }?.let { paths.add(it) }
         m.optJSONArray("content_scripts")?.let { arr ->
-            for (i in 0 until arr.length()) {
-                val cs = arr.optJSONObject(i) ?: continue
-                cs.optJSONArray("js")?.let { jsArr ->
-                    for (j in 0 until jsArr.length()) paths.add(jsArr.getString(j))
-                }
-                cs.optJSONArray("css")?.let { cssArr ->
-                    for (j in 0 until cssArr.length()) paths.add(cssArr.getString(j))
-                }
+            for (i in 0 until arr.size) {
+                val cs = JsonAccess((arr[i] as? kotlinx.serialization.json.JsonObject) ?: continue)
+                cs.optJSONArray("js")?.strings()?.forEach { paths.add(it) }
+                cs.optJSONArray("css")?.strings()?.forEach { paths.add(it) }
             }
         }
         val bundlePaths = bundle.map { it.path }.toSet()

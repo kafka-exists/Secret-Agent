@@ -68,7 +68,11 @@ class ZipBuilderTest {
         try {
             ZipInputStream(tampered.inputStream()).use { zis ->
                 var e = zis.nextEntry
-                if (e != null) {
+                // A tampered zip may either fail to expose any entry (corrupt
+                // header) or read back content that no longer matches.
+                if (e == null) {
+                    mismatch = true
+                } else {
                     val readBack = zis.readBytes()
                     if (!readBack.contentEquals(files[0].content)) mismatch = true
                 }

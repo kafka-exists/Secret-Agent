@@ -1,7 +1,6 @@
 package com.keyforge.chat.files.validate
 
 import com.keyforge.chat.files.GeneratedFile
-import org.json.JSONObject
 import org.jsoup.Jsoup
 
 /**
@@ -29,8 +28,8 @@ object ReferenceChecker {
         for (file in bundle) {
             when (file.extension.lowercase()) {
                 "json" -> {
-                    val obj = runCatching { JSONObject(String(file.content, Charsets.UTF_8)) }.getOrNull()
-                    if (obj != null && (file.name == "manifest.json" || obj.has("manifest_version"))) {
+                    val obj = runCatching { JsonAccess.parse(String(file.content, Charsets.UTF_8)) }.getOrNull()
+                    if (obj != null && obj.has("manifest_version")) {
                         collectManifestRefs(obj, edges, file.path, referenced)
                     }
                 }
@@ -71,39 +70,38 @@ object ReferenceChecker {
     }
 
     private fun collectManifestRefs(
-        m: JSONObject,
+        m: JsonAccess,
         edges: MutableList<Edge>,
         from: String,
         referenced: MutableSet<String>,
     ) {
-        m.optJSONObject("icons")?.keys()?.forEach { size ->
-            val p = m.optJSONObject("icons")!!.getString(size)
+        val icons = m.optJSONObject("icons")
+        if (icons.keys().isNotEmpty()) icons.keys().forEach { size ->
+            val p = icons.getString(size)
             edges.add(Edge(from, p, "icon")); referenced.add(p)
         }
         listOf("action", "browser_action").forEach { key ->
-            m.optJSONObject(key)?.optString("default_popup")?.takeIf { it.isNotBlank() }?.let {
+            m.optJSONObject(key).optString("default_popup").takeIf { it.isNotBlank() }?.let {
                 edges.add(Edge(from, it, "popup")); referenced.add(it)
             }
         }
         m.optString("background").takeIf { it.isNotBlank() }?.let {
             edges.add(Edge(from, it, "background")); referenced.add(it)
         }
-        m.optJSONObject("background")?.optString("service_worker")?.takeIf { it.isNotBlank() }?.let {
+        m.optJSONObject("background").optString("service_worker").takeIf { it.isNotBlank() }?.let {
             edges.add(Edge(from, it, "service-worker")); referenced.add(it)
         }
-        m.optJSONObject("background")?.optJSONArray("scripts")?.let { arr ->
-            for (i in 0 until arr.length()) {
-                val p = arr.getString(i); edges.add(Edge(from, p, "background-script")); referenced.add(p)
-            }
+        m.optJSONObject("background").optJSONArray("scripts")?.strings()?.forEach { p ->
+            edges.add(Edge(from, p, "background-script")); referenced.add(p)
         }
-        m.optJSONObject("options_ui")?.optString("page")?.takeIf { it.isNotBlank() }?.let {
+        m.optJSONObject("options_ui").optString("page").takeIf { it.isNotBlank() }?.let {
             edges.add(Edge(from, it, "options")); referenced.add(it)
         }
         m.optJSONArray("content_scripts")?.let { arr ->
-            for (i in 0 until arr.length()) {
-                val cs = arr.optJSONObject(i) ?: continue
-                cs.optJSONArray("js")?.let { ja -> for (j in 0 until ja.length()) { val p = ja.getString(j); edges.add(Edge(from, p, "content-script")); referenced.add(p) } }
-                cs.optJSONArray("css")?.let { ja -> for (j in 0 until ja.length()) { val p = ja.getString(j); edges.add(Edge(from, p, "content-css")); referenced.add(p) } }
+            for (i in 0 until arr.size) {
+                val cs = JsonAccess((arr[i] as? kotlinx.serialization.json.JsonObject) ?: continue)
+                cs.optJSONArray("js")?.strings()?.forEach { p -> edges.add(Edge(from, p, "content-script")); referenced.add(p) }
+                cs.optJSONArray("css")?.strings()?.forEach { p -> edges.add(Edge(from, p, "content-css")); referenced.add(p) }
             }
         }
     }
